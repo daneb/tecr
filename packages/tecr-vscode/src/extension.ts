@@ -1,35 +1,63 @@
 /**
- * tecr-vscode: VS Code chat participant for TECR.
+ * tecr-vscode — thin MCP client launcher (Path B, S-19).
  *
- * S-01: @tecr participant calls tecr-core#hello() directly (bundled).
- * S-02: adds `map` command — calls buildRepoMap() for the open workspace.
- * S-05 (Phase 2): replaces direct core calls with MCP client requests.
+ * The extension spawns tecr-mcp as a child process and calls its tools via
+ * the Model Context Protocol. No @tecr/core import — WASM runs in the server
+ * process, not the VS Code extension host.
+ *
+ * Server path resolution (in order):
+ *   1. tecr.mcpServerPath setting
+ *   2. ../tecr-mcp/dist/index.js relative to the extension root (dev/F5)
  */
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import {
-  hello,
-  buildRepoMap,
-  outline,
-  readLines,
-  searchSymbol,
-  grep,
-  references,
-  Governor,
-  GovernorHardStop,
-} from '@tecr/core';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
-const governor = new Governor();
-const WINDOW_SIZE = 200_000;
+// ── MCP client singleton ──────────────────────────────────────────────────────
 
-const PARTICIPANT_ID = 'tecr';
+let _client: Client | null = null;
+let _extensionRoot = '';
+
+async function getClient(): Promise<Client> {
+  if (_client) return _client;
+
+  const serverPath = resolveServerPath();
+
+  const transport = new StdioClientTransport({ command: 'node', args: [serverPath] });
+  _client = new Client({ name: 'tecr-vscode', version: '0.0.1' }, { capabilities: {} });
+  await _client.connect(transport);
+  return _client;
+}
+
+async function callTool(name: string, args: Record<string, unknown>): Promise<string> {
+  const client = await getClient();
+  const result = await client.callTool({ name, arguments: args });
+  const content = result.content as Array<{ type: string; text: string }>;
+  return content.map((c) => c.text).join('\n');
+}
+
+function resolveServerPath(): string {
+  const setting = vscode.workspace
+    .getConfiguration('tecr')
+    .get<string>('mcpServerPath', '')
+    .trim();
+  if (setting) return setting;
+  return path.join(_extensionRoot, '..', 'tecr-mcp', 'dist', 'index.js');
+}
+
+// ── Activation ────────────────────────────────────────────────────────────────
 
 export function activate(context: vscode.ExtensionContext): void {
-  const participant = vscode.chat.createChatParticipant(PARTICIPANT_ID, handler);
+  _extensionRoot = context.extensionPath;
+  const participant = vscode.chat.createChatParticipant('tecr', handler);
   participant.iconPath = new vscode.ThemeIcon('symbol-namespace');
-  registerMcpServer(context);
   context.subscriptions.push(participant);
+}
+
+export function deactivate(): void {
+  _client = null;
 }
 
 // ── Chat handler ──────────────────────────────────────────────────────────────
@@ -38,258 +66,113 @@ async function handler(
   request: vscode.ChatRequest,
   _context: vscode.ChatContext,
   stream: vscode.ChatResponseStream,
-  _token: vscode.CancellationToken,
 ): Promise<vscode.ChatResult> {
   const prompt = request.prompt.trim();
 
   if (!prompt) {
     stream.markdown(
-      'TECR is running. Commands:\n' +
-        '- `@tecr hello <message>` — smoke-test the pipeline\n' +
-        '- `@tecr map` — show the repo-map for the open workspace\n' +
-        '- `@tecr outline <file>` — show signatures and docstrings for a file\n' +
-        '- `@tecr read <file> [start] [end]` — read lines from a file (200-line pages)\n' +
-        '- `@tecr search <query>` — find symbols by name across the workspace\n' +
-        '- `@tecr grep <pattern>` — lexical search with ±2 lines context\n' +
-        '- `@tecr refs <symbol>` — find all call sites for a symbol\n',
+      'TECR tools:\n' +
+        '- `@tecr map [budget]` — repo-map of the workspace (default 8192 tokens)\n' +
+        '- `@tecr outline <file>` — signatures and docstrings\n' +
+        '- `@tecr read <file> [start] [end]` — paginated file read\n' +
+        '- `@tecr search <query>` — AST symbol search\n' +
+        '- `@tecr grep <pattern>` — lexical search with context\n' +
+        '- `@tecr refs <symbol>` — all call sites for a symbol\n' +
+        '- `@tecr delegate <task>` — isolated sub-agent discovery\n',
     );
     return {};
   }
 
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
   try {
-    governor.checkBefore(WINDOW_SIZE);
-  } catch (err) {
-    if (err instanceof GovernorHardStop) {
-      stream.markdown('TECR: context budget exhausted. Start a new chat or reduce focus files.');
-      return {};
-    }
-    throw err;
-  }
+    const [cmd, ...rest] = prompt.split(/\s+/);
+    const arg = rest.join(' ').trim();
 
-  const [cmd, ...rest] = prompt.split(/\s+/);
-
-  switch (cmd.toLowerCase()) {
-    case 'map':
-      return handleMap(stream);
-
-    case 'grep': {
-      const pattern = rest.join(' ').trim();
-      if (!pattern) {
-        stream.markdown('Usage: `@tecr grep <pattern>`');
-        return {};
+    switch (cmd.toLowerCase()) {
+      case 'map': {
+        const budgetArg = arg ? parseInt(arg, 10) : NaN;
+        const budget = Number.isFinite(budgetArg) && budgetArg > 0 ? budgetArg : 8192;
+        stream.progress('Building repo-map…');
+        const text = await callTool('repo_map', { workspaceRoot, budget });
+        stream.markdown('```\n' + text + '\n```');
+        break;
       }
-      return handleGrep(stream, pattern);
-    }
 
-    case 'refs':
-    case 'references': {
-      const symbol = rest.join(' ').trim();
-      if (!symbol) {
-        stream.markdown('Usage: `@tecr refs <symbol>`');
-        return {};
+      case 'outline': {
+        if (!arg) { stream.markdown('Usage: `@tecr outline <file>`'); break; }
+        const filePath = absolutePath(arg, workspaceRoot);
+        stream.progress('Outlining…');
+        const text = await callTool('outline', { filePath });
+        stream.markdown('```\n' + text + '\n```');
+        break;
       }
-      return handleReferences(stream, symbol);
-    }
 
-    case 'search': {
-      const query = rest.join(' ').trim();
-      if (!query) {
-        stream.markdown('Usage: `@tecr search <query>`');
-        return {};
+      case 'read': {
+        const [filePart, startPart, endPart] = rest;
+        if (!filePart) { stream.markdown('Usage: `@tecr read <file> [start] [end]`'); break; }
+        const filePath = absolutePath(filePart, workspaceRoot);
+        const start = startPart ? parseInt(startPart, 10) : undefined;
+        const end = endPart ? parseInt(endPart, 10) : undefined;
+        const text = await callTool('read_lines', { filePath, start, end });
+        stream.markdown('```\n' + text + '\n```');
+        break;
       }
-      return handleSearch(stream, query);
-    }
 
-    case 'read': {
-      const [filePart, startPart, endPart] = rest;
-      if (!filePart) {
-        stream.markdown('Usage: `@tecr read <file> [start] [end]`');
-        return {};
+      case 'search': {
+        if (!arg) { stream.markdown('Usage: `@tecr search <query>`'); break; }
+        const text = await callTool('search_symbol', { workspaceRoot, query: arg });
+        stream.markdown('```\n' + text + '\n```');
+        break;
       }
-      return handleRead(stream, filePart, startPart ? parseInt(startPart, 10) : undefined, endPart ? parseInt(endPart, 10) : undefined);
-    }
 
-    case 'outline': {
-      const filePath = rest.join(' ').trim();
-      if (!filePath) {
-        stream.markdown('Usage: `@tecr outline <file>`');
-        return {};
+      case 'grep': {
+        if (!arg) { stream.markdown('Usage: `@tecr grep <pattern>`'); break; }
+        const text = await callTool('grep', { workspaceRoot, pattern: arg });
+        stream.markdown('```\n' + text + '\n```');
+        break;
       }
-      return handleOutline(stream, filePath);
-    }
 
-    default:
-      // Fall back to hello for anything unrecognised.
-      stream.markdown(hello(prompt));
-      return {};
-  }
-}
+      case 'refs':
+      case 'references': {
+        if (!arg) { stream.markdown('Usage: `@tecr refs <symbol>`'); break; }
+        const text = await callTool('references', { workspaceRoot, symbolName: arg });
+        stream.markdown('```\n' + text + '\n```');
+        break;
+      }
 
-async function handleMap(stream: vscode.ChatResponseStream): Promise<vscode.ChatResult> {
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-  if (!workspaceFolders || workspaceFolders.length === 0) {
-    stream.markdown('No workspace folder is open.');
-    return {};
-  }
+      case 'delegate': {
+        if (!arg) { stream.markdown('Usage: `@tecr delegate <task>`'); break; }
+        stream.progress('Running sub-agent…');
+        const text = await callTool('delegate', { workspaceRoot, task: arg });
+        stream.markdown(text);
+        break;
+      }
 
-  const workspaceRoot = workspaceFolders[0].uri.fsPath;
-
-  stream.markdown('Building repo-map…\n\n');
-
-  const result = await buildRepoMap(workspaceRoot, { budget: 1024 });
-
-  if (!result.text.trim()) {
-    stream.markdown('No TypeScript/JavaScript files found in the workspace.');
-    return {};
-  }
-
-  stream.markdown('```\n' + result.text + '\n```\n\n');
-  stream.markdown(
-    `_${result.tokenCount} tokens · ${result.truncated ? 'truncated (budget 1024 tokens)' : 'within budget'}_`,
-  );
-
-  return {};
-}
-
-async function handleGrep(
-  stream: vscode.ChatResponseStream,
-  pattern: string,
-): Promise<vscode.ChatResult> {
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-  if (!workspaceFolders || workspaceFolders.length === 0) {
-    stream.markdown('No workspace folder is open.');
-    return {};
-  }
-  const workspaceRoot = workspaceFolders[0].uri.fsPath;
-
-  try {
-    const result = await grep(workspaceRoot, pattern);
-    stream.markdown('```\n' + result.text + '\n```\n\n');
-    if (result.truncated) {
-      stream.markdown(`_${result.totalMatches} total matches · showing first 100_`);
+      default:
+        stream.markdown(`Unknown command \`${cmd}\`. Type \`@tecr\` for the command list.`);
     }
   } catch (err) {
-    stream.markdown(`Error: ${(err as Error).message}`);
-  }
-  return {};
-}
-
-async function handleSearch(
-  stream: vscode.ChatResponseStream,
-  query: string,
-): Promise<vscode.ChatResult> {
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-  if (!workspaceFolders || workspaceFolders.length === 0) {
-    stream.markdown('No workspace folder is open.');
-    return {};
-  }
-  const workspaceRoot = workspaceFolders[0].uri.fsPath;
-
-  try {
-    const result = await searchSymbol(workspaceRoot, query);
-    stream.markdown('```\n' + result.text + '\n```\n\n');
-    if (result.truncated) {
-      stream.markdown(`_${result.totalMatches} total matches · showing first 50_`);
+    const msg = (err as Error).message ?? String(err);
+    if (msg.includes('ENOENT') || msg.includes('Cannot find')) {
+      stream.markdown(
+        '**TECR server not found.** Set `tecr.mcpServerPath` to the absolute path of ' +
+          '`packages/tecr-mcp/dist/index.js` in your VS Code settings, then reload the window.',
+      );
+      _client = null;
+    } else {
+      stream.markdown(`**Error:** ${msg}`);
+      _client = null;
     }
-  } catch (err) {
-    stream.markdown(`Error: ${(err as Error).message}`);
   }
+
   return {};
 }
 
-async function handleRead(
-  stream: vscode.ChatResponseStream,
-  filePath: string,
-  start?: number,
-  end?: number,
-): Promise<vscode.ChatResult> {
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-  if (!workspaceFolders || workspaceFolders.length === 0) {
-    stream.markdown('No workspace folder is open.');
-    return {};
-  }
-  const workspaceRoot = workspaceFolders[0].uri.fsPath;
-  const absPath = path.isAbsolute(filePath) ? filePath : path.join(workspaceRoot, filePath);
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-  try {
-    const result = await readLines(absPath, start, end);
-    stream.markdown('```\n' + result.text + '\n```\n\n');
-    stream.markdown(
-      `_${result.lineCount} lines (${result.startLine}–${result.endLine} of ${result.totalLines})${result.truncated ? ' · truncated' : ''}_`,
-    );
-  } catch (err) {
-    stream.markdown(`Error: ${(err as Error).message}`);
-  }
-  return {};
+function absolutePath(filePath: string, workspaceRoot: string | undefined): string {
+  if (path.isAbsolute(filePath)) return filePath;
+  if (workspaceRoot) return path.join(workspaceRoot, filePath);
+  return filePath;
 }
-
-async function handleOutline(
-  stream: vscode.ChatResponseStream,
-  filePath: string,
-): Promise<vscode.ChatResult> {
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-  if (!workspaceFolders || workspaceFolders.length === 0) {
-    stream.markdown('No workspace folder is open.');
-    return {};
-  }
-  const workspaceRoot = workspaceFolders[0].uri.fsPath;
-  const absPath = path.isAbsolute(filePath) ? filePath : path.join(workspaceRoot, filePath);
-
-  try {
-    const result = await outline(absPath);
-    stream.markdown('```\n' + result.text + '\n```\n\n');
-    stream.markdown(
-      `_${result.lineCount} lines${result.truncated ? ' · truncated' : ''}_`,
-    );
-  } catch (err) {
-    stream.markdown(`Error: ${(err as Error).message}`);
-  }
-  return {};
-}
-
-async function handleReferences(
-  stream: vscode.ChatResponseStream,
-  symbolName: string,
-): Promise<vscode.ChatResult> {
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-  if (!workspaceFolders || workspaceFolders.length === 0) {
-    stream.markdown('No workspace folder is open.');
-    return {};
-  }
-  const workspaceRoot = workspaceFolders[0].uri.fsPath;
-
-  try {
-    const result = await references(workspaceRoot, symbolName);
-    stream.markdown('```\n' + result.text + '\n```\n\n');
-    if (result.truncated) {
-      stream.markdown(`_${result.totalMatches} total references · showing first 100_`);
-    }
-  } catch (err) {
-    stream.markdown(`Error: ${(err as Error).message}`);
-  }
-  return {};
-}
-
-// ── MCP server registration ───────────────────────────────────────────────────
-
-function registerMcpServer(context: vscode.ExtensionContext): void {
-  const devServerPath = context.asAbsolutePath(
-    path.join('..', '..', 'packages', 'tecr-mcp', 'dist', 'index.js'),
-  );
-
-  const lm = vscode.lm as typeof vscode.lm & {
-    registerMcpServerDefinitionProvider?: (id: string, provider: unknown) => vscode.Disposable;
-  };
-
-  if (typeof lm.registerMcpServerDefinitionProvider !== 'function') return;
-
-  const disposable = lm.registerMcpServerDefinitionProvider('tecr', {
-    provideMcpServerDefinitions() {
-      return [{ label: 'TECR', kind: 0 /* stdio */, command: 'node', args: [devServerPath] }];
-    },
-  });
-
-  context.subscriptions.push(disposable);
-}
-
-export function deactivate(): void {}

@@ -1,6 +1,6 @@
 # TECR — Token-Efficient Code Retrieval
 
-[![TECR-L4 Conformance](https://github.com/YOUR_ORG/YOUR_REPO/actions/workflows/conformance.yml/badge.svg)](https://github.com/daneb/tecr/actions/workflows/conformance.yml)
+[![TECR-L4 Conformance](https://github.com/daneb/tecr/actions/workflows/conformance.yml/badge.svg)](https://github.com/daneb/tecr/actions/workflows/conformance.yml)
 
 A portable retrieval layer for agentic coding tools. Keeps agent context budgets under control by exposing a graph-ranked repo-map, bounded tool contracts, a context budget governor, and sub-agent isolation — all through a single MCP server.
 
@@ -53,11 +53,16 @@ The build compiles all three packages in dependency order. Compiled output lands
 
 ## Connect to an MCP Host
 
-The MCP server entry point is `packages/tecr-mcp/dist/index.js`. It speaks the Model Context Protocol over stdio.
+Build first, then configure your client to launch the MCP server:
 
-### Claude Code
+```sh
+pnpm build
+# server entry point: packages/tecr-mcp/dist/index.js
+```
 
-Add to your project's `.claude/settings.json` (or `~/.claude/settings.json` for global):
+### Claude Code (CLI or VS Code extension)
+
+Add to `.claude/settings.json` in your project (or `~/.claude/settings.json` for all projects):
 
 ```json
 {
@@ -70,24 +75,35 @@ Add to your project's `.claude/settings.json` (or `~/.claude/settings.json` for 
 }
 ```
 
-Then in Claude Code, tools are available automatically. You can invoke them explicitly:
+Restart Claude Code. TECR tools appear automatically in the tool list and Claude will use them during code navigation tasks.
 
+### VS Code (native MCP — no extension required)
+
+VS Code 1.99+ has built-in MCP support. Add to your workspace `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "tecr": {
+      "command": "node",
+      "args": ["/absolute/path/to/tecr/packages/tecr-mcp/dist/index.js"]
+    }
+  }
+}
 ```
-use mcp tool tecr repo_map with workspaceRoot "/path/to/project"
+
+TECR tools are then available to any MCP-compatible AI in VS Code (GitHub Copilot, etc.).
+
+### VS Code Extension (Copilot Chat participant)
+
+The `tecr-vscode` package provides an `@tecr` chat participant for GitHub Copilot Chat. To install it:
+
+```sh
+cd packages/tecr-vscode
+pnpm package          # produces tecr-vscode-0.0.1.vsix
 ```
 
-### Cursor
-
-In **Cursor Settings → MCP**, add a new server:
-
-| Field | Value |
-|---|---|
-| Name | `tecr` |
-| Command | `node /absolute/path/to/tecr/packages/tecr-mcp/dist/index.js` |
-
-### VS Code Extension
-
-From the repo root, open `packages/tecr-vscode` in VS Code and press **F5** to launch the Extension Development Host. The `@tecr` chat participant becomes available in the Copilot panel:
+Then in VS Code: **Extensions → … → Install from VSIX** and select the file. Once installed, `@tecr` is available in the Copilot Chat panel:
 
 ```
 @tecr map                               # repo-map of the workspace
@@ -98,6 +114,18 @@ From the repo root, open `packages/tecr-vscode` in VS Code and press **F5** to l
 @tecr read src/auth.ts 1 50             # paginated file read
 @tecr delegate "find all token parsers" # isolated sub-agent discovery
 ```
+
+Set the server path in VS Code settings: `tecr.mcpServerPath` → absolute path to `packages/tecr-mcp/dist/index.js`.
+
+### Cursor
+
+**Settings → Cursor Settings → MCP → Add new server:**
+
+| Field | Value |
+|---|---|
+| Name | `tecr` |
+| Type | `command` |
+| Command | `node /absolute/path/to/tecr/packages/tecr-mcp/dist/index.js` |
 
 ---
 
@@ -207,7 +235,7 @@ TECR_NO_TELEMETRY=1 pnpm gate
 # All gates passed. TECR-L4 ✓
 ```
 
-The CI workflow at [`.github/workflows/conformance.yml`](.github/workflows/conformance.yml) runs this on every push to `main` and every PR. Update the badge URL at the top of this file with your actual org/repo after pushing.
+The CI workflow at [`.github/workflows/conformance.yml`](.github/workflows/conformance.yml) runs this automatically on every push to `main` and every PR.
 
 ### Golden Corpus
 

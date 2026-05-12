@@ -29,25 +29,24 @@
         "tecr.mcpServerPath": {
           "type": "string",
           "default": "",
-          "description": "Absolute path to the tecr-mcp dist/index.js. Leave empty to use the bundled server."
+          "description": "Absolute path to packages/tecr-mcp/dist/index.js in your TECR checkout."
         }
       }
     }
   },
   "scripts": {
-    "build": "tsc && node scripts/bundle.js",
-    "compile": "tsc",
+    "build": "node scripts/bundle.js",
     "clean": "rm -rf dist",
-    "dev": "tsc --watch",
-    "package": "vsce package --no-dependencies"
+    "package": "pnpm build && vsce package --no-dependencies"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "@tecr/core": "workspace:*"
+    "@modelcontextprotocol/sdk": "^1.29.0"
   },
   "devDependencies": {
     "@types/node": "^25.6.2",
     "@types/vscode": "^1.99.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.24.0",
     "typescript": "^5.8.3"
   }
 }

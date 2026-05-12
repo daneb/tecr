@@ -144,12 +144,16 @@ function resolveWasmPath(pkg: string, ...parts: string[]): string {
   throw new Error(`Cannot locate package directory for: ${pkg}`);
 }
 
+// web-tree-sitter's init() replaces module.exports with the Emscripten WASM
+// object, so we must capture the Parser constructor before calling init().
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _Parser: any = null;
 let _initPromise: Promise<void> | null = null;
 
 async function ensureParserInit(): Promise<void> {
   if (!_initPromise) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const _Parser = ((await import('web-tree-sitter')) as any).default;
+    _Parser = ((await import('web-tree-sitter')) as any).default;
     _initPromise = _Parser.init({
       locateFile: (name: string) => resolveWasmPath('web-tree-sitter', name),
     }) as Promise<void>;
@@ -167,8 +171,6 @@ async function getParser(config: LangConfig): Promise<any> {
   if (cached) return cached;
 
   await ensureParserInit();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const _Parser = ((await import('web-tree-sitter')) as any).default;
 
   const wasmFile = resolveWasmPath('tree-sitter-wasms', 'out', config.grammarWasm);
   const language = await _Parser.Language.load(wasmFile);
