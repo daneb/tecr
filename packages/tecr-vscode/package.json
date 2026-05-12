@@ -1,0 +1,53 @@
+{
+  "name": "tecr-vscode",
+  "displayName": "TECR",
+  "description": "Token-Efficient Code Retrieval — VS Code chat participant powered by tecr-mcp",
+  "version": "0.0.1",
+  "publisher": "danebalia",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.99.0"
+  },
+  "categories": [
+    "AI"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "chatParticipants": [
+      {
+        "id": "tecr",
+        "name": "tecr",
+        "fullName": "TECR",
+        "description": "Token-Efficient Code Retrieval — ask @tecr to map and navigate your codebase.",
+        "isSticky": false
+      }
+    ],
+    "configuration": {
+      "title": "TECR",
+      "properties": {
+        "tecr.mcpServerPath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to the tecr-mcp dist/index.js. Leave empty to use the bundled server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc && node scripts/bundle.js",
+    "compile": "tsc",
+    "clean": "rm -rf dist",
+    "dev": "tsc --watch",
+    "package": "vsce package --no-dependencies"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@tecr/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.2",
+    "@types/vscode": "^1.99.0",
+    "typescript": "^5.8.3"
+  }
+}

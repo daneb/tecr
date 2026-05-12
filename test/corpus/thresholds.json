@@ -1,0 +1,23 @@
+[
+  {
+    "id": "bincode",
+    "language": "rust",
+    "sourceRoot": ".",
+    "prompt": "Find all types that implement the Encode or Decode trait",
+    "threshold": 2
+  },
+  {
+    "id": "zod",
+    "language": "typescript",
+    "sourceRoot": ".",
+    "prompt": "Find all exported schema types and their .parse() method signatures",
+    "threshold": 2
+  },
+  {
+    "id": "httpx",
+    "language": "python",
+    "sourceRoot": ".",
+    "prompt": "Find all classes that handle HTTP request or response objects",
+    "threshold": 2
+  }
+]

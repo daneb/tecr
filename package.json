@@ -1,0 +1,18 @@
+{
+  "name": "tecr",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Token-Efficient Code Retrieval — monorepo root",
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm -r --parallel dev",
+    "clean": "pnpm -r clean",
+    "test": "vitest run",
+    "measure": "pnpm build && tsx scripts/measure.ts",
+    "gate": "pnpm build && TECR_NO_TELEMETRY=1 tsx scripts/conformance-gate.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0",
+    "vitest": "^4.1.5"
+  }
+}
