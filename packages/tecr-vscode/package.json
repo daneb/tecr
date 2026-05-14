@@ -2,7 +2,7 @@
   "name": "tecr-mcp",
   "displayName": "TECR - Token-Efficient Code Retrieval",
   "description": "Token-Efficient Code Retrieval — VS Code chat participant powered by tecr-mcp",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "danebalia",
   "license": "MIT",
   "repository": {
