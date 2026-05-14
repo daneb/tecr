@@ -2,6 +2,17 @@
 
 A VS Code chat participant (`@tecr`) that lets AI agents navigate your codebase without dumping raw source into the context window. It talks to a local [tecr-mcp](../tecr-mcp) server over the Model Context Protocol, providing AST-aware tools that stay within configurable token budgets.
 
+## Why TECR vs. your IDE's built-in AI?
+
+| | Modern IDE AI (Copilot, Cursor) | TECR |
+|---|---|---|
+| **Context strategy** | Dumps nearby files into the prompt | Fetches only what the task needs |
+| **Token awareness** | None — host model manages cutoff | Tracks utilization per turn; governor blocks before hard stop |
+| **Code navigation** | Embedding similarity or whole-file send | AST-ranked repo map, symbol search, paginated reads with cursor |
+| **Exploratory tasks** | Pollutes the parent context | Isolated sub-agent; only a ≤200-token summary returns |
+| **Protocol** | Proprietary IDE integration | MCP — works in any compliant host |
+| **Context window use** | Grows until truncated by the model | Stays within a declared budget; truncation is a metric, not a surprise |
+
 ## Prerequisites
 
 - VS Code 1.99 or later (chat participant API)
