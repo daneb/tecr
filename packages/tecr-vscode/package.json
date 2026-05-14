@@ -2,7 +2,7 @@
   "name": "tecr-vscode",
   "displayName": "TECR",
   "description": "Token-Efficient Code Retrieval — VS Code chat participant powered by tecr-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "danebalia",
   "license": "MIT",
   "repository": {
@@ -10,7 +10,13 @@
     "url": "https://github.com/danebalia/tecr"
   },
   "bugs": "https://github.com/danebalia/tecr/issues",
-  "keywords": ["mcp", "code-navigation", "ast", "context-window", "chat-participant"],
+  "keywords": [
+    "mcp",
+    "code-navigation",
+    "ast",
+    "context-window",
+    "chat-participant"
+  ],
   "icon": "assets/icon.png",
   "galleryBanner": {
     "color": "#1e1e2e",

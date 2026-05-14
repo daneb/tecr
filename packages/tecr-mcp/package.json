@@ -1,19 +1,26 @@
 {
   "name": "@tecr/mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "TECR MCP server — exposes tecr-core over the Model Context Protocol",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/danebalia/tecr"
   },
-  "keywords": ["mcp", "model-context-protocol", "code-retrieval", "tecr"],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "code-retrieval",
+    "tecr"
+  ],
   "type": "module",
   "main": "dist/index.js",
   "bin": {
     "tecr-mcp": "dist/index.js"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "engines": {
     "node": ">=20"
   },
