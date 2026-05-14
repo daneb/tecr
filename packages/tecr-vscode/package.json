@@ -7,9 +7,9 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/danebalia/tecr"
+    "url": "https://github.com/daneb/tecr"
   },
-  "bugs": "https://github.com/danebalia/tecr/issues",
+  "bugs": "https://github.com/daneb/tecr/issues",
   "keywords": [
     "mcp",
     "code-navigation",
