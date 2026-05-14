@@ -26,7 +26,7 @@ async function getClient(): Promise<Client> {
   const serverPath = resolveServerPath();
 
   const transport = new StdioClientTransport({ command: 'node', args: [serverPath] });
-  _client = new Client({ name: 'tecr-vscode', version: '0.0.1' }, { capabilities: {} });
+  _client = new Client({ name: 'tecr-vscode', version: '0.1.0' }, { capabilities: {} });
   await _client.connect(transport);
   return _client;
 }

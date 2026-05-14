@@ -260,7 +260,11 @@ export async function extractWasmLanguages(workspaceRoot: string): Promise<FileR
 
     const parser = await getParser(config);
     for (const filePath of files) {
-      allRecords.push(await parseFile(filePath, parser, config.extractors));
+      try {
+        allRecords.push(await parseFile(filePath, parser, config.extractors));
+      } catch {
+        // skip unparseable files rather than crashing the server
+      }
     }
   }
 

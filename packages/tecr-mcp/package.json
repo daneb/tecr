@@ -1,6 +1,6 @@
 {
   "name": "@tecr/mcp",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "TECR MCP server — exposes tecr-core over the Model Context Protocol",
   "type": "module",
   "main": "dist/index.js",

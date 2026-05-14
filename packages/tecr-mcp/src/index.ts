@@ -33,7 +33,7 @@ const WINDOW_SIZE = parseInt(process.env.TECR_CONTEXT_WINDOW ?? '200000', 10);
 const governor = new Governor();
 
 const server = new Server(
-  { name: 'tecr-mcp', version: '0.0.1' },
+  { name: 'tecr-mcp', version: '0.1.0' },
   { capabilities: { tools: {} } },
 );
 
@@ -330,6 +330,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────
+
+process.on('uncaughtException', (err) => {
+  process.stderr.write(`[tecr-mcp] uncaughtException: ${err.message}\n`);
+});
+
+process.on('unhandledRejection', (reason) => {
+  process.stderr.write(`[tecr-mcp] unhandledRejection: ${reason}\n`);
+});
 
 const transport = new StdioServerTransport();
 await server.connect(transport);

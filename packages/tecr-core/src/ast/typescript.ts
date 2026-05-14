@@ -67,9 +67,13 @@ export async function extractWorkspace(workspaceRoot: string): Promise<FileRecor
 
   const records: FileRecord[] = [];
   for (const filePath of files) {
-    const content = await readFile(filePath, 'utf8');
-    const sf = proj.createSourceFile(filePath, content, { overwrite: true });
-    records.push(extractFile(sf, workspaceRoot));
+    try {
+      const content = await readFile(filePath, 'utf8');
+      const sf = proj.createSourceFile(filePath, content, { overwrite: true });
+      records.push(extractFile(sf, workspaceRoot));
+    } catch {
+      // skip unparseable files rather than crashing the server
+    }
   }
 
   return records;

@@ -1,7 +1,7 @@
 {
   "name": "tecr",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Token-Efficient Code Retrieval — monorepo root",
   "scripts": {
     "build": "pnpm -r build",

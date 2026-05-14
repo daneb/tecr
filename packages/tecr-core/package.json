@@ -1,6 +1,6 @@
 {
   "name": "@tecr/core",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "TECR core retrieval engine — portable library, no I/O dependencies",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
