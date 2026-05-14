@@ -5,6 +5,17 @@
   "version": "0.1.0",
   "publisher": "danebalia",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/danebalia/tecr"
+  },
+  "bugs": "https://github.com/danebalia/tecr/issues",
+  "keywords": ["mcp", "code-navigation", "ast", "context-window", "chat-participant"],
+  "icon": "assets/icon.png",
+  "galleryBanner": {
+    "color": "#1e1e2e",
+    "theme": "dark"
+  },
   "engines": {
     "vscode": "^1.99.0"
   },
@@ -13,6 +24,12 @@
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",
+  "capabilities": {
+    "workspaceTrust": {
+      "required": true,
+      "description": "TECR spawns the tecr-mcp server as a child process to read your workspace."
+    }
+  },
   "contributes": {
     "chatParticipants": [
       {
@@ -29,7 +46,22 @@
         "tecr.mcpServerPath": {
           "type": "string",
           "default": "",
-          "description": "Absolute path to packages/tecr-mcp/dist/index.js in your TECR checkout."
+          "description": "Override path to the TECR MCP server (absolute path to dist/index.js). Leave empty to use `tecr-mcp` from PATH after `npm install -g @tecr/mcp`."
+        },
+        "tecr.contextWindow": {
+          "type": "number",
+          "default": 200000,
+          "description": "Token budget passed to the TECR governor (TECR_CONTEXT_WINDOW env var)."
+        },
+        "tecr.localModelUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Base URL of a local OpenAI-compatible model for sub-agent offload, e.g. http://localhost:11434/v1 (TECR_LOCAL_MODEL_URL env var)."
+        },
+        "tecr.telemetryEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable per-turn telemetry emission to stderr. Disable to set TECR_NO_TELEMETRY=1."
         }
       }
     }

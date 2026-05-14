@@ -23,6 +23,8 @@ export interface CorpusEntry {
   sourceRoot: string;
   /** Natural-language task prompt for the measurement harness. */
   prompt: string;
+  /** Explicit search term used by the harness for searchSymbol + grep calls. */
+  searchTerm: string;
   /** Minimum useful-action count expected from a compliant implementation. */
   threshold: number;
 }
@@ -32,6 +34,7 @@ interface ThresholdRecord {
   language: string;
   sourceRoot: string;
   prompt: string;
+  searchTerm: string;
   threshold: number;
 }
 
@@ -49,6 +52,7 @@ export function loadCorpus(): CorpusEntry[] {
     repoPath: path.join(CORPUS_DIR, r.id),
     sourceRoot: path.join(CORPUS_DIR, r.id, r.sourceRoot),
     prompt: r.prompt,
+    searchTerm: r.searchTerm,
     threshold: r.threshold,
   }));
 }
