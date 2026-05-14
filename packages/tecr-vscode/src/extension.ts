@@ -58,7 +58,8 @@ function resolveServerCommand(cfg: vscode.WorkspaceConfiguration): { command: st
   if (existsSync(devPath)) {
     return { command: 'node', args: [devPath] };
   }
-  return { command: 'tecr-mcp', args: [] };
+  const bin = process.platform === 'win32' ? 'tecr-mcp.cmd' : 'tecr-mcp';
+  return { command: bin, args: [] };
 }
 
 // ── Activation ────────────────────────────────────────────────────────────────
