@@ -9,7 +9,8 @@
     "clean": "pnpm -r clean",
     "test": "vitest run",
     "measure": "pnpm build && tsx scripts/measure.ts",
-    "gate": "pnpm build && TECR_NO_TELEMETRY=1 tsx scripts/conformance-gate.ts"
+    "gate": "pnpm build && TECR_NO_TELEMETRY=1 tsx scripts/conformance-gate.ts",
+    "release": "bash scripts/release.sh"
   },
   "devDependencies": {
     "tsx": "^4.21.0",
