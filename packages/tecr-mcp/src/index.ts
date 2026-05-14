@@ -237,15 +237,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   const a = (args ?? {}) as Record<string, unknown>;
 
-  // Enforce budget ceiling before running the tool (spec §7.1 I2).
   try {
+    // Enforce budget ceiling before running the tool (spec §7.1 I2).
     governor.checkBefore(WINDOW_SIZE);
-  } catch (err) {
-    if (err instanceof GovernorHardStop) {
-      return { content: [{ type: 'text', text: err.message }], isError: true };
-    }
-    throw err;
-  }
 
   switch (name) {
     case 'hello': {
@@ -327,9 +321,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
+  } catch (err) {
+    if (err instanceof GovernorHardStop) {
+      return { content: [{ type: 'text', text: err.message }], isError: true };
+    }
+    const msg = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`[tecr-mcp] tool error (${name}): ${msg}\n`);
+    return { content: [{ type: 'text', text: `TECR error: ${msg}` }], isError: true };
+  }
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────
+
+process.on('SIGTERM', async () => {
+  await server.close();
+  process.exit(0);
+});
 
 const transport = new StdioServerTransport();
 await server.connect(transport);

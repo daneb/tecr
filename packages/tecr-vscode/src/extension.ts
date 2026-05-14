@@ -23,9 +23,16 @@ let _extensionRoot = '';
 async function getClient(): Promise<Client> {
   if (_client) return _client;
 
-  const serverPath = resolveServerPath();
+  const cfg = vscode.workspace.getConfiguration('tecr');
+  const env: Record<string, string> = { ...process.env as Record<string, string> };
+  const ctxWindow = cfg.get<number>('contextWindow', 200000);
+  if (ctxWindow !== 200000) env['TECR_CONTEXT_WINDOW'] = String(ctxWindow);
+  const localModel = cfg.get<string>('localModelUrl', '').trim();
+  if (localModel) env['TECR_LOCAL_MODEL_URL'] = localModel;
+  if (!cfg.get<boolean>('telemetryEnabled', true)) env['TECR_NO_TELEMETRY'] = '1';
 
-  const transport = new StdioClientTransport({ command: 'node', args: [serverPath] });
+  const { command, args } = resolveServerCommand(cfg);
+  const transport = new StdioClientTransport({ command, args, env });
   _client = new Client({ name: 'tecr-vscode', version: '0.0.1' }, { capabilities: {} });
   await _client.connect(transport);
   return _client;
@@ -38,13 +45,20 @@ async function callTool(name: string, args: Record<string, unknown>): Promise<st
   return content.map((c) => c.text).join('\n');
 }
 
-function resolveServerPath(): string {
-  const setting = vscode.workspace
-    .getConfiguration('tecr')
-    .get<string>('mcpServerPath', '')
-    .trim();
-  if (setting) return setting;
-  return path.join(_extensionRoot, '..', 'tecr-mcp', 'dist', 'index.js');
+function resolveServerCommand(cfg: vscode.WorkspaceConfiguration): { command: string; args: string[] } {
+  const override = cfg.get<string>('mcpServerPath', '').trim();
+  if (override) {
+    // Developer override: run a specific built file with node.
+    return { command: 'node', args: [override] };
+  }
+  // Default: use the globally-installed `tecr-mcp` binary (npm install -g @tecr/mcp).
+  // Falls back to the dev sibling path when running via F5.
+  const devPath = path.join(_extensionRoot, '..', 'tecr-mcp', 'dist', 'index.js');
+  const { existsSync } = require('fs') as typeof import('fs');
+  if (existsSync(devPath)) {
+    return { command: 'node', args: [devPath] };
+  }
+  return { command: 'tecr-mcp', args: [] };
 }
 
 // ── Activation ────────────────────────────────────────────────────────────────
@@ -57,6 +71,7 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {
+  _client?.close().catch(() => undefined);
   _client = null;
 }
 
@@ -156,8 +171,9 @@ async function handler(
     const msg = (err as Error).message ?? String(err);
     if (msg.includes('ENOENT') || msg.includes('Cannot find')) {
       stream.markdown(
-        '**TECR server not found.** Set `tecr.mcpServerPath` to the absolute path of ' +
-          '`packages/tecr-mcp/dist/index.js` in your VS Code settings, then reload the window.',
+        '**TECR server not found.** Run `npm install -g @tecr/mcp` to install the server globally, ' +
+          'then reload the window. Alternatively, set `tecr.mcpServerPath` to the absolute path of ' +
+          '`packages/tecr-mcp/dist/index.js` if you have a local checkout.',
       );
       _client = null;
     } else {

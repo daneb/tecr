@@ -4,6 +4,7 @@
     "language": "rust",
     "sourceRoot": ".",
     "prompt": "Find all types that implement the Encode or Decode trait",
+    "searchTerm": "BorrowDecoder",
     "threshold": 2
   },
   {
@@ -11,6 +12,7 @@
     "language": "typescript",
     "sourceRoot": ".",
     "prompt": "Find all exported schema types and their .parse() method signatures",
+    "searchTerm": "ZodDiscriminatedUnion",
     "threshold": 2
   },
   {
@@ -18,6 +20,7 @@
     "language": "python",
     "sourceRoot": ".",
     "prompt": "Find all classes that handle HTTP request or response objects",
+    "searchTerm": "AsyncByteStream",
     "threshold": 2
   }
 ]

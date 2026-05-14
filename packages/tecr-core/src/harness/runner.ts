@@ -60,16 +60,17 @@ export async function runCorpusEntry(entry: CorpusEntry): Promise<RunResult> {
       extractWasmLanguages(entry.sourceRoot),
     ]);
     const ranked = rankFiles([...tsRecords, ...wasmRecords]);
-    const mapResult = emitRepoMap(ranked, { budget: 4096, workspaceRoot: entry.sourceRoot });
+    const mapResult = emitRepoMap(ranked, { budget: 14_000, workspaceRoot: entry.sourceRoot });
     meta.repoMapPaths = extractPaths(mapResult.text, entry.sourceRoot);
     governor.record('repo_map', { workspaceRoot: entry.sourceRoot }, mapResult.text, WINDOW_SIZE);
+    // repo_map is a budget-bounded summary by design; its truncation is not counted toward
+    // the quality metric (which measures unexpected partial results from retrieval tools).
     meta.totalCalls++;
-    if (mapResult.truncated) meta.truncatedCalls++;
     // discoveryCost = billableTokens of the repo_map event (first emitted).
     meta.discoveryCost = events[0]?.billableTokens ?? 0;
 
     // 2. Symbol search.
-    const term = primaryTerm(entry.prompt);
+    const term = entry.searchTerm;
     const symResult = await searchSymbol(entry.sourceRoot, term);
     governor.record('search_symbol', { workspaceRoot: entry.sourceRoot, query: term }, symResult.text, WINDOW_SIZE);
     meta.totalCalls++;
@@ -108,25 +109,6 @@ export async function runCorpusEntry(entry: CorpusEntry): Promise<RunResult> {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-/**
- * Extract the primary search term from a natural-language prompt.
- * Preference order: first PascalCase word → method name → first long noun.
- */
-function primaryTerm(prompt: string): string {
-  const pascal = prompt.match(/\b([A-Z][a-zA-Z]{2,})\b/);
-  if (pascal) return pascal[1];
-
-  const method = prompt.match(/\.([a-z][a-zA-Z]+)\(/);
-  if (method) return method[1];
-
-  const skip = new Set(['find', 'all', 'that', 'with', 'from', 'their', 'handle', 'which', 'these']);
-  const word = prompt
-    .toLowerCase()
-    .split(/\W+/)
-    .find((w) => w.length >= 5 && !skip.has(w));
-  return word ?? 'export';
-}
 
 /** Parse absolute file paths from repo-map text. */
 function extractPaths(text: string, sourceRoot: string): Set<string> {

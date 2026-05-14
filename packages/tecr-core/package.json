@@ -2,12 +2,34 @@
   "name": "@tecr/core",
   "version": "0.0.1",
   "description": "TECR core retrieval engine — portable library, no I/O dependencies",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/danebalia/tecr"
+  },
+  "keywords": ["mcp", "code-retrieval", "ast", "context-window", "ai", "tecr"],
   "main": "dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
   "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "prepare": "tsc"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
   },
   "devDependencies": {
     "@types/node": "^25.6.2",
