@@ -75,7 +75,8 @@
   "scripts": {
     "build": "node scripts/bundle.js",
     "clean": "rm -rf dist",
-    "package": "pnpm build && vsce package --no-dependencies"
+    "package": "pnpm build && vsce package --no-dependencies",
+    "publish": "pnpm build && vsce publish --no-dependencies"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0"

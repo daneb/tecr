@@ -37,10 +37,16 @@ git add package.json packages/tecr-core/package.json packages/tecr-mcp/package.j
 git commit -m "chore: release v${NEW_VERSION}"
 git tag "v${NEW_VERSION}"
 
+# ── 6. Package VS Code extension ─────────────────────────────────────────────
+echo "Packaging VS Code extension…"
+pnpm --filter tecr-vscode package
+
+VSIX_PATH="packages/tecr-vscode/tecr-vscode-${NEW_VERSION}.vsix"
+
 echo ""
 echo "✓ Tagged v${NEW_VERSION}. Next steps:"
 echo "  pnpm --filter @tecr/core publish --access public"
 echo "  pnpm --filter @tecr/mcp  publish --access public"
-echo "  pnpm --filter tecr-vscode package   # upload .vsix to marketplace"
+echo "  Upload ${VSIX_PATH} to https://marketplace.visualstudio.com/manage"
 echo ""
 echo "  git push && git push --tags"
